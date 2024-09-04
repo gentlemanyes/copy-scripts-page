@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copy Text Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            margin-bottom: 40px;
+        }
+        h2 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        pre {
+            background-color: #272822;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin-bottom: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            overflow-x: auto;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #4cae4c;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Serverscript in ServerScriptService</h2>
+        <pre id="serverscript">
+local folder = workspace:FindFirstChild("SpeedrunParts")
+local part1 = folder and folder:FindFirstChild("Part1")
+local part2 = folder and folder:FindFirstChild("Part2")
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local startRunEvent = ReplicatedStorage:WaitForChild("StartRunEvent")
+local endRunEvent = ReplicatedStorage:WaitForChild("EndRunEvent")
+
+local playerStartTimes = {}
+local debounce = {}
+
+local function onPart1Touched(hit)
+    local character = hit.Parent
+    local player = game.Players:GetPlayerFromCharacter(character)
+    if player and not debounce[player.UserId] then
+        debounce[player.UserId] = tick()
+        if not playerStartTimes[player.UserId] then
+            playerStartTimes[player.UserId] = tick()
+            startRunEvent:FireClient(player)
+        end
+    end
+end
+
+local function onPart2Touched(hit)
+    local character = hit.Parent
+    local player = game.Players:GetPlayerFromCharacter(character)
+    if player and debounce[player.UserId] then
+        local currentTime = tick()
+        if currentTime - debounce[player.UserId] < 1 then
+            return
+        end
+        debounce[player.UserId] = nil
+        local startTime = playerStartTimes[player.UserId]
+        if startTime then
+            local elapsedTime = tick() - startTime
+            endRunEvent:FireClient(player)
+            playerStartTimes[player.UserId] = nil
+        end
+    end
+end
+
+if part1 then
+    part1.Touched:Connect(onPart1Touched)
+end
+
+if part2 then
+    part2.Touched:Connect(onPart2Touched)
+end
+
+game.Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        playerStartTimes[player.UserId] = nil
+        debounce[player.UserId] = nil
+    end)
+end)
+
+game.Players.PlayerRemoving:Connect(function(player)
+    playerStartTimes[player.UserId] = nil
+    debounce[player.UserId] = nil
+end)
+        </pre>
+        <button onclick="copyText('serverscript')">Copy Serverscript</button>
+    </div>
+
+    <div class="container">
+        <h2>Localscript in ScreenGui</h2>
+        <pre id="localscript">
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local screenGui = playerGui:WaitForChild("ScreenGui")
+local timerLabel = screenGui:WaitForChild("TimerLabel")
+
+local startTime = 0
+local isRunning = false
+local updateConnection = nil
+
+local function startTimer()
+    startTime = tick()
+    isRunning = true
+    timerLabel.Visible = true
+    timerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    updateConnection = game:GetService("RunService").RenderStepped:Connect(function()
+        if isRunning then
+            local elapsedTime = tick() - startTime
+            local seconds = math.floor(elapsedTime)
+            local milliseconds = math.floor((elapsedTime - seconds) * 1000)
+            timerLabel.Text = string.format("%d:%03d", seconds, milliseconds)
+        end
+    end)
+end
+
+local function stopTimer()
+    isRunning = false
+    if updateConnection then
+        updateConnection:Disconnect()
+    end
+    local elapsedTime = tick() - startTime
+    local seconds = math.floor(elapsedTime)
+    local milliseconds = math.floor((elapsedTime - seconds) * 1000)
+    timerLabel.Text = string.format("%d:%03d", seconds, milliseconds)
+    timerLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+
+    for i = 1, 20 do
+        wait(0.05)
+        timerLabel.TextTransparency = i / 20
+    end
+
+    timerLabel.Visible = false
+    timerLabel.TextTransparency = 0
+end
+
+local function resetTimer()
+    timerLabel.Text = "0:000"
+    timerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    timerLabel.TextTransparency = 0
+end
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local startRunEvent = ReplicatedStorage:WaitForChild("StartRunEvent")
+local endRunEvent = ReplicatedStorage:WaitForChild("EndRunEvent")
+
+startRunEvent.OnClientEvent:Connect(function()
+    resetTimer()
+    startTimer()
+end)
+
+endRunEvent.OnClientEvent:Connect(function()
+    stopTimer()
+end)
+        </pre>
+        <button onclick="copyText('localscript')">Copy Localscript</button>
+    </div>
+
+    <script>
+        function copyText(elementId) {
+            var textToCopy = document.getElementById(elementId).innerText;
+            var tempTextarea = document.createElement("textarea");
+            tempTextarea.value = textToCopy;
+            document.body.appendChild(tempTextarea);
+            tempTextarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempTextarea);
+            alert("Copied the text!");
+        }
+    </script>
+
+</body>
+</html>
